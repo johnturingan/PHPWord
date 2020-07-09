@@ -17,6 +17,8 @@
 
 namespace PhpOffice\PhpWord;
 
+use DOMDocument;
+use DOMXpath;
 use PhpOffice\Common\Text;
 use PhpOffice\Common\XMLWriter;
 use PhpOffice\PhpWord\Escaper\RegExp;
@@ -25,6 +27,8 @@ use PhpOffice\PhpWord\Exception\CopyFileException;
 use PhpOffice\PhpWord\Exception\CreateTemporaryFileException;
 use PhpOffice\PhpWord\Exception\Exception;
 use PhpOffice\PhpWord\Shared\ZipArchive;
+use PhpOffice\PhpWord\Writer\Word2007\Element\AbstractElement;
+use XSLTProcessor;
 
 class TemplateProcessor
 {
@@ -96,8 +100,8 @@ class TemplateProcessor
      *
      * @param string $documentTemplate The fully qualified template filename
      *
-     * @throws \PhpOffice\PhpWord\Exception\CreateTemporaryFileException
-     * @throws \PhpOffice\PhpWord\Exception\CopyFileException
+     * @throws CreateTemporaryFileException
+     * @throws CopyFileException
      */
     public function __construct($documentTemplate)
     {
@@ -137,7 +141,7 @@ class TemplateProcessor
      * To replace an image: $templateProcessor->zip()->AddFromString("word/media/image1.jpg", file_get_contents($file));<br>
      * To read a file: $templateProcessor->zip()->getFromName("word/media/image1.jpg");
      *
-     * @return \PhpOffice\PhpWord\Shared\ZipArchive
+     * @return ZipArchive
      */
     public function zip()
     {
@@ -162,16 +166,16 @@ class TemplateProcessor
 
     /**
      * @param string $xml
-     * @param \XSLTProcessor $xsltProcessor
-     *
-     * @throws \PhpOffice\PhpWord\Exception\Exception
+     * @param XSLTProcessor $xsltProcessor
      *
      * @return string
+     *@throws Exception
+     *
      */
     protected function transformSingleXml($xml, $xsltProcessor)
     {
         $orignalLibEntityLoader = libxml_disable_entity_loader(true);
-        $domDocument = new \DOMDocument();
+        $domDocument = new DOMDocument();
         if (false === $domDocument->loadXML($xml)) {
             throw new Exception('Could not load the given XML document.');
         }
@@ -187,9 +191,10 @@ class TemplateProcessor
 
     /**
      * @param mixed $xml
-     * @param \XSLTProcessor $xsltProcessor
+     * @param XSLTProcessor $xsltProcessor
      *
      * @return mixed
+     * @throws Exception
      */
     protected function transformXml($xml, $xsltProcessor)
     {
@@ -211,15 +216,15 @@ class TemplateProcessor
      * Note: since the method doesn't make any guess on logic of the provided XSL style sheet,
      * make sure that output is correctly escaped. Otherwise you may get broken document.
      *
-     * @param \DOMDocument $xslDomDocument
+     * @param DOMDocument $xslDomDocument
      * @param array $xslOptions
      * @param string $xslOptionsUri
      *
-     * @throws \PhpOffice\PhpWord\Exception\Exception
+     * @throws Exception
      */
     public function applyXslStyleSheet($xslDomDocument, $xslOptions = array(), $xslOptionsUri = '')
     {
-        $xsltProcessor = new \XSLTProcessor();
+        $xsltProcessor = new XSLTProcessor();
 
         $xsltProcessor->importStylesheet($xslDomDocument);
         if (false === $xsltProcessor->setParameter($xslOptionsUri, $xslOptions)) {
@@ -269,7 +274,7 @@ class TemplateProcessor
         $objectClass = 'PhpOffice\\PhpWord\\Writer\\Word2007\\Element\\' . $elementName;
 
         $xmlWriter = new XMLWriter();
-        /** @var \PhpOffice\PhpWord\Writer\Word2007\Element\AbstractElement $elementWriter */
+        /** @var AbstractElement $elementWriter */
         $elementWriter = new $objectClass($xmlWriter, $complexType, true);
         $elementWriter->write();
 
@@ -292,7 +297,7 @@ class TemplateProcessor
         $objectClass = 'PhpOffice\\PhpWord\\Writer\\Word2007\\Element\\' . $elementName;
 
         $xmlWriter = new XMLWriter();
-        /** @var \PhpOffice\PhpWord\Writer\Word2007\Element\AbstractElement $elementWriter */
+        /** @var AbstractElement $elementWriter */
         $elementWriter = new $objectClass($xmlWriter, $complexType, false);
         $elementWriter->write();
 
@@ -542,6 +547,7 @@ class TemplateProcessor
      * @param mixed $search
      * @param mixed $replace Path to image, or array("path" => xx, "width" => yy, "height" => zz)
      * @param int $limit
+     * @throws Exception
      */
     public function setImageValue($search, $replace, $limit = self::MAXIMUM_REPLACEMENTS_DEFAULT)
     {
@@ -564,8 +570,8 @@ class TemplateProcessor
 
         // collect document parts
         $searchParts = array(
-                            $this->getMainPartName() => &$this->tempDocumentMainPart,
-                            );
+            $this->getMainPartName() => &$this->tempDocumentMainPart,
+        );
         foreach (array_keys($this->tempDocumentHeaders) as $headerIndex) {
             $searchParts[$this->getHeaderName($headerIndex)] = &$this->tempDocumentHeaders[$headerIndex];
         }
@@ -656,7 +662,7 @@ class TemplateProcessor
      * @param string $search
      * @param int $numberOfClones
      *
-     * @throws \PhpOffice\PhpWord\Exception\Exception
+     * @throws Exception
      */
     public function cloneRow($search, $numberOfClones)
     {
@@ -708,6 +714,7 @@ class TemplateProcessor
      *
      * @param string $search
      * @param array $values
+     * @throws Exception
      */
     public function cloneRowAndSetValues($search, $values)
     {
@@ -734,6 +741,7 @@ class TemplateProcessor
      */
     public function cloneBlock($blockname, $clones = 1, $replace = true, $indexVariables = false, $variableReplacements = null)
     {
+
         $xmlBlock = null;
         $matches = array();
         preg_match(
@@ -756,10 +764,9 @@ class TemplateProcessor
             }
 
             if ($replace) {
-                $this->tempDocumentMainPart = str_replace(
-                    $matches[2] . $matches[3] . $matches[4],
-                    implode('', $cloned),
-                    $this->tempDocumentMainPart
+                $this->tempDocumentMainPart = strtr(
+                    $this->tempDocumentMainPart,
+                    [$matches[2] . $matches[3] . $matches[4] => implode('', $cloned)],
                 );
             }
         }
@@ -775,20 +782,20 @@ class TemplateProcessor
      */
     public function replaceBlock($blockname, $replacement)
     {
-        $matches = array();
-        preg_match(
-            '/(<\?xml.*)(<w:p.*>\${' . $blockname . '}<\/w:.*?p>)(.*)(<w:p.*\${\/' . $blockname . '}<\/w:.*?p>)/is',
-            $this->tempDocumentMainPart,
-            $matches
-        );
-
-        if (isset($matches[3])) {
-            $this->tempDocumentMainPart = str_replace(
-                $matches[2] . $matches[3] . $matches[4],
-                $replacement,
-                $this->tempDocumentMainPart
-            );
+        $dom = new DOMDocument();
+        $dom->loadXML($this->tempDocumentMainPart);
+        $nodeSets = $this->findBlocks($blockname, $dom);
+        foreach ($nodeSets as $nodeSet) {
+            $newNode = $dom->createElement('t:marker');
+            $nodeSet[0]->parentNode->insertBefore($newNode, $nodeSet[0]);
         }
+        $this->deleteNodeSets($nodeSets);
+        $xml = $dom->saveXML();
+        $this->tempDocumentMainPart = str_replace(
+            '<t:marker/>',
+            $replacement,
+            $xml
+        );
     }
 
     /**
@@ -798,7 +805,18 @@ class TemplateProcessor
      */
     public function deleteBlock($blockname)
     {
-        $this->replaceBlock($blockname, '');
+        $dom = new DOMDocument();
+        $dom->loadXML($this->tempDocumentMainPart);
+        $this->deleteNodeSets($this->findBlocks($blockname, $dom));
+        $this->tempDocumentMainPart = $dom->saveXML();
+    }
+
+    private function deleteNodeSets($nodeSets) {
+        foreach ($nodeSets as $nodeSet) {
+            foreach ($nodeSet as $node) {
+                $node->parentNode->removeChild($node);
+            }
+        }
     }
 
     /**
@@ -820,9 +838,9 @@ class TemplateProcessor
     /**
      * Saves the result document.
      *
-     * @throws \PhpOffice\PhpWord\Exception\Exception
-     *
      * @return string
+     *@throws Exception
+     *
      */
     public function save()
     {
@@ -863,9 +881,10 @@ class TemplateProcessor
     /**
      * Saves the result document to the user defined file.
      *
+     * @param string $fileName
+     * @throws Exception
      * @since 0.8.0
      *
-     * @param string $fileName
      */
     public function saveAs($fileName)
     {
@@ -912,17 +931,36 @@ class TemplateProcessor
      * @param string $documentPartXML
      * @param int $limit
      *
-     * @return string
+     * @return string|array
      */
     protected function setValueForPart($search, $replace, $documentPartXML, $limit)
     {
-        // Note: we can't use the same function for both cases here, because of performance considerations.
+        $replacements = [];
+
+        if (is_array($search) && is_array($replace)) {
+
+            $replacements = array_combine($search, $replace);
+
+        } else if (is_string($search) && is_string($replace)) {
+
+            $replacements[$search] = $replace;
+        }
+
+        if (is_array($documentPartXML)) {
+
+            return [key($documentPartXML) => strtr(reset($documentPartXML), $replacements)];
+        }
+
+        return strtr($documentPartXML, $replacements);
+
+        /*// Note: we can't use the same function for both cases here, because of performance considerations.
         if (self::MAXIMUM_REPLACEMENTS_DEFAULT === $limit) {
+
             return str_replace($search, $replace, $documentPartXML);
         }
         $regExpEscaper = new RegExp();
 
-        return preg_replace($regExpEscaper->escape($search), $replace, $documentPartXML, $limit);
+        return preg_replace($regExpEscaper->escape($search), $replace, $documentPartXML, $limit);*/
     }
 
     /**
@@ -1025,9 +1063,9 @@ class TemplateProcessor
      *
      * @param int $offset
      *
-     * @throws \PhpOffice\PhpWord\Exception\Exception
-     *
      * @return int
+     *@throws Exception
+     *
      */
     protected function findRowStart($offset)
     {
@@ -1119,7 +1157,7 @@ class TemplateProcessor
      * @param string $macro Name of macro
      * @param string $block New block content
      * @param string $blockType XML tag type of block
-     * @return \PhpOffice\PhpWord\TemplateProcessor Fluent interface
+     * @return TemplateProcessor Fluent interface
      */
     protected function replaceXmlBlock($macro, $block, $blockType = 'w:p')
     {
@@ -1248,5 +1286,44 @@ class TemplateProcessor
     protected function textNeedsSplitting($text)
     {
         return preg_match('/[^>]\${|}[^<]/i', $text) == 1;
+    }
+
+    private function findBlocks($blockname, $domDoc, $type = 'complete')
+    {
+        $domXpath = new DOMXpath($domDoc);
+        $max = $domXpath->query('//w:p[contains(., "${'.$blockname.'}")]')->length;
+        $nodeLists = array();
+        for ($i = 1; $i <= $max; $i++) {
+            $query = join(' | ', self::getQueryByType($type));
+            $data = array(
+                'BLOCKNAME' => $blockname,
+                'INDEX' => $i
+            );
+            $findFromTo = str_replace(array_keys($data), array_values($data), $query);
+            $nodelist = $domXpath->query($findFromTo);
+            $nodeLists[] = $nodelist;
+        }
+        return $nodeLists;
+    }
+    private static function getQueryByType($type)
+    {
+        $parts = array(
+            '//w:p[contains(., "${BLOCKNAME}")][INDEX]',
+            // https://stackoverflow.com/questions/3428104/selecting-siblings-between-two-nodes-using-xpath
+            '//w:p[contains(., "${BLOCKNAME}")][INDEX]/
+                following-sibling::w:p[contains(., "${/BLOCKNAME}")][1]/
+                preceding-sibling::w:p[
+                    preceding-sibling::w:p[contains(., "${BLOCKNAME}")][INDEX]
+                ]',
+            '//w:p[contains(., "${/BLOCKNAME}")][INDEX]'
+        );
+        switch ($type) {
+            case 'complete':
+                return $parts;
+            case 'inner':
+                return array($parts[1]);
+            case 'outer':
+                return array($parts[0], $parts[2]);
+        }
     }
 }
