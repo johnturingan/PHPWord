@@ -741,6 +741,7 @@ class TemplateProcessor
      */
     public function cloneBlock($blockname, $clones = 1, $replace = true, $indexVariables = false, $variableReplacements = null)
     {
+
         $xmlBlock = null;
         $matches = array();
         preg_match(
@@ -763,10 +764,9 @@ class TemplateProcessor
             }
 
             if ($replace) {
-                $this->tempDocumentMainPart = str_replace(
-                    $matches[2] . $matches[3] . $matches[4],
-                    implode('', $cloned),
-                    $this->tempDocumentMainPart
+                $this->tempDocumentMainPart = strtr(
+                    $this->tempDocumentMainPart,
+                    [$matches[2] . $matches[3] . $matches[4] => implode('', $cloned)],
                 );
             }
         }
@@ -931,17 +931,36 @@ class TemplateProcessor
      * @param string $documentPartXML
      * @param int $limit
      *
-     * @return string
+     * @return string|array
      */
     protected function setValueForPart($search, $replace, $documentPartXML, $limit)
     {
-        // Note: we can't use the same function for both cases here, because of performance considerations.
+        $replacements = [];
+
+        if (is_array($search) && is_array($replace)) {
+
+            $replacements = array_combine($search, $replace);
+
+        } else if (is_string($search) && is_string($replace)) {
+
+            $replacements[$search] = $replace;
+        }
+
+        if (is_array($documentPartXML)) {
+
+            return [key($documentPartXML) => strtr(reset($documentPartXML), $replacements)];
+        }
+
+        return strtr($documentPartXML, $replacements);
+
+        /*// Note: we can't use the same function for both cases here, because of performance considerations.
         if (self::MAXIMUM_REPLACEMENTS_DEFAULT === $limit) {
+
             return str_replace($search, $replace, $documentPartXML);
         }
         $regExpEscaper = new RegExp();
 
-        return preg_replace($regExpEscaper->escape($search), $replace, $documentPartXML, $limit);
+        return preg_replace($regExpEscaper->escape($search), $replace, $documentPartXML, $limit);*/
     }
 
     /**
