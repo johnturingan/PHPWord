@@ -40,7 +40,8 @@
         "php": "^5.3.3 || ^7.0",
         "ext-xml": "*",
         "zendframework/zend-escaper": "^2.2",
-        "phpoffice/common": "^0.2.9"
+        "phpoffice/common": "^0.2.9",
+        "ext-dom": "*"
     },
     "require-dev": {
         "ext-zip": "*",
