@@ -1,6 +1,6 @@
 {
     "name": "johnturingan/phpword",
-    "version": "0.17.1",
+    "version": "1.0.0",
     "description": "A fork from PHPOffice/PHPWord. PHPWord - A pure PHP library for reading and writing word processing documents (OOXML, ODF, RTF, HTML, PDF)",
     "keywords": [],
     "homepage": "https://github.com/johnturingan/PHPWord",
@@ -37,10 +37,10 @@
         "fix": "Fixes issues found by PHP-CS"
     },
     "require": {
-        "php": "^5.3.3 || ^7.0",
         "ext-xml": "*",
         "zendframework/zend-escaper": "^2.2",
-        "phpoffice/common": "^0.2.9"
+        "phpoffice/common": "^0.2.9",
+        "ext-dom": "*"
     },
     "require-dev": {
         "ext-zip": "*",
@@ -65,11 +65,6 @@
     "autoload": {
         "psr-4": {
             "PhpOffice\\PhpWord\\": "src/PhpWord"
-        }
-    },
-    "extra": {
-        "branch-alias": {
-            "dev-develop": "0.18-dev"
         }
     }
 }
