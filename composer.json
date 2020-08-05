@@ -1,6 +1,6 @@
 {
     "name": "johnturingan/phpword",
-    "version": "0.17.2",
+    "version": "0.17.3",
     "description": "A fork from PHPOffice/PHPWord. PHPWord - A pure PHP library for reading and writing word processing documents (OOXML, ODF, RTF, HTML, PDF)",
     "keywords": [],
     "homepage": "https://github.com/johnturingan/PHPWord",
